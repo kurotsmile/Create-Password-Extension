@@ -215,19 +215,50 @@ class App{
             app.type_encryption=parseInt(index);
             $(".btn_sel_encryption").removeClass('btn-dark').addClass('btn-light');
             $(this).removeClass('btn-light').addClass('btn-dark');
+            app.parse_encryption();
             return false;
         });
 
         $("#encryption_in").change(function(){
-            var val_encryption=$("#encryption_in").val();
-            var val_result='';
-            if(app.type_encryption==0)
-                val_result=CryptoJS.AES.encrypt(val_encryption,"password");
-            else if(app.type_encryption==1)
-                val_result=encodeURIComponent(val_encryption);
-            else if(app.type_encryption==2)
-                val_result=CryptoJS.MD5(val_encryption).toString();
-            $("#encryption_out").val(val_result);
+            app.parse_encryption();
+        });
+    }
+
+    parse_encryption(){
+        var val_encryption=$("#encryption_in").val();
+        var val_result='';
+        if(app.type_encryption==0)
+            val_result=CryptoJS.AES.encrypt(val_encryption,"password");
+        else if(app.type_encryption==1)
+            val_result=encodeURIComponent(val_encryption);
+        else if(app.type_encryption==2)
+            val_result=CryptoJS.MD5(val_encryption).toString();
+        else if(app.type_encryption==3)
+            val_result=CryptoJS.SHA256(val_encryption).toString();
+        else if(app.type_encryption==4)
+            val_result=CryptoJS.AES.encrypt(val_encryption, 'password').toString();
+        else if(app.type_encryption==6)
+            val_result=CryptoJS.HmacSHA256(val_encryption, 'password').toString();
+        else if(app.type_encryption==7)
+            val_result=app.rot13(val_encryption);
+        else if(app.type_encryption==8)
+            val_result=app.caesarCipher(val_encryption,3);
+        $("#encryption_out").val(val_result);
+    }
+
+    rot13(str) {
+        return str.replace(/[a-zA-Z]/g, function(c) {
+            return String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
+        });
+    }
+
+    caesarCipher(str, shift) {
+        return str.replace(/[a-zA-Z]/g, function(c) {
+            var code = c.charCodeAt(0);
+            var lowerCaseStart = 97;
+            var upperCaseStart = 65;
+            var start = code >= lowerCaseStart ? lowerCaseStart : upperCaseStart;
+            return String.fromCharCode(((code - start + shift) % 26) + start);
         });
     }
 
