@@ -27,12 +27,21 @@ class App{
                 app.p_lower=result.save_setting["p_lower"];
                 app.p_number=result.save_setting["p_number"];
                 app.p_special=result.save_setting["p_special"];
-                app.show_main();
+                app.type_encryption=result.save_setting["type_encryption"];
+                app.sel_menu=result.save_setting["sel_menu"];
+                if(app.sel_menu==0)
+                    app.show_main();
+                else if(app.sel_menu==1)
+                    app.show_list_password();
+                else if(app.sel_menu==2)
+                    app.show_encryption();
+                else
+                    app.show_main();
             }else{
                 app.show_main();
             }
         });
-        
+ 
         $("#footer-donation").html(ce.donation_html());
     }
 
@@ -167,13 +176,9 @@ class App{
 
         var btn_save=$(frm_create).find("#btn_save");
         $(btn_save).click(()=>{
-            chrome.storage.local.get({list_password: []}, function (result) {
-                var data_password = result.list_password;
-                data_password.push({'password': app.p_pass,'tag': $(inp_save_tag).val(),'username':$(inp_save_username).val()});
-                chrome.storage.local.set({list_password: data_password}, function () {
-                    ce.copy(app.p_pass,true);
-                    app.show_list_password();
-                });
+            app.save_list(app.p_pass,$(inp_save_tag).val(),$(inp_save_username).val(),'0',()=>{
+                ce.copy(app.p_pass,true);
+                app.show_list_password();
             });
             return false;
         });
@@ -196,16 +201,22 @@ class App{
                 html+='<button index-type="2" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===2 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> MD5</button>';
                 html+='<button index-type="3" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===3 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> SHA-256</button>';
                 html+='<button index-type="4" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===4 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> AES</button>';
-                html+='<button index-type="5" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===5 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> RSA</button>';
+                html+='<button index-type="5" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===5 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> RIPEMD-160</button>';
                 html+='<button index-type="6" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===6 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> HMAC</button>';
                 html+='<button index-type="7" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===7 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> ROT13</button>';
                 html+='<button index-type="8" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===8 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> Caesar Cipher</button>';
+                html+='<button index-type="9" class="btn_sel_encryption btn btn-sm m-1 '+(app.type_encryption===9 ? "btn-dark" : "btn-light")+'"><i class="fas fa-dna"></i> Rabbit</button>';
             html+='</div>';
 
             html+='<div class="mb-3">';
                 html+='<label for="exampleFormControlTextarea1" class="form-label">Result</label>';
                 html+='<textarea class="form-control" id="encryption_out" rows="3"></textarea>';
             html+='</div>';
+
+            html+='<div class="mb-3">';
+                html+='<button id="btn_save_encryptio" class="btn btn-success w-100"><i class="fas fa-save"></i> Save and Copy</button>';
+            html+='</div>';
+
         html+='</form>';
         $("#body_main").html(html);
         app.show_menu();
@@ -216,11 +227,21 @@ class App{
             $(".btn_sel_encryption").removeClass('btn-dark').addClass('btn-light');
             $(this).removeClass('btn-light').addClass('btn-dark');
             app.parse_encryption();
+            app.save_setting();
             return false;
         });
 
         $("#encryption_in").change(function(){
             app.parse_encryption();
+        });
+
+        $("#btn_save_encryptio").click(function(){
+            var val_encryption_in=$("#encryption_in").val();
+            var val_encryption_out=$("#encryption_out").val();
+            app.save_list(val_encryption_out,val_encryption_in,"Encryptio","1",()=>{
+                ce.copy(val_encryption_out,true);
+            });
+            return false;
         });
     }
 
@@ -237,12 +258,16 @@ class App{
             val_result=CryptoJS.SHA256(val_encryption).toString();
         else if(app.type_encryption==4)
             val_result=CryptoJS.AES.encrypt(val_encryption, 'password').toString();
+        else if(app.type_encryption==5)
+            val_result=CryptoJS.RIPEMD160(val_encryption).toString();
         else if(app.type_encryption==6)
             val_result=CryptoJS.HmacSHA256(val_encryption, 'password').toString();
         else if(app.type_encryption==7)
             val_result=app.rot13(val_encryption);
         else if(app.type_encryption==8)
             val_result=app.caesarCipher(val_encryption,3);
+        else if(app.type_encryption==9)
+            val_result=CryptoJS.Rabbit.encrypt(val_encryption,"Secret Passphrase");
         $("#encryption_out").val(val_result);
     }
 
@@ -291,11 +316,23 @@ class App{
                         let s_pass=data_p[index_item].password;
                         let s_tag='';
                         let s_ussername='';
-                        if(data_p[i].tag)
-                            s_tag='<i class="fas fa-tag"></i> '+data_p[i].tag;
-                        else
-                            s_tag='<i class="fas fa-tag"></i> Password ('+i+')';
+                        let s_icon_type='';
 
+                        if(data_p[i].type=="1")
+                            s_icon_type='<i class="fab fa-mendeley"></i> ';
+                        else
+                            s_icon_type='<i class="fa fa-key" aria-hidden="true"></i> ';
+
+                        if(data_p[i].tag){
+                            s_tag=s_icon_type+data_p[i].tag;
+                        }
+                        else{
+                            if(data_p[i].type=="1")
+                                s_tag=s_icon_type+' Encryption('+i+')';
+                            else
+                                s_tag=s_icon_type+' Password('+i+')';
+                        }
+                            
                         if(data_p[i].username) s_ussername='<i class="fas fa-user-tag"></i> '+data_p[i].username;
 
                         let item_p=$('<tr><td class="text-truncate-ellipsis"><b>'+s_tag+'</b> '+s_ussername+'<br/><small>'+data_p[i].password+'</small></td><td><button class="btn btn-sm btn-info btn_copy m-1"><i class="fas fa-copy"></i></button><button class="btn btn-sm btn-danger btn_del m-1"><i class="fas fa-backspace"></i></button></td></tr>');
@@ -349,26 +386,42 @@ class App{
 
 
     create_password(){
-        var check_password_upper=$('#check_password_upper').is(':checked') ? 1 : 0;
-        var check_password_lower=$('#check_password_lower').is(':checked') ? 1 : 0;
-        var check_password_number=$('#check_password_number').is(':checked') ? 1 : -1;
-        var check_password_special=$('#check_password_special').is(':checked') ? 1: -1;
-        var inp_password_length=parseInt($('#inp_password_length').val());
-        app.p_pass=app.randomPassword(inp_password_length,check_password_upper,check_password_lower,check_password_number,check_password_special);
+        app.p_upper=$('#check_password_upper').is(':checked') ? 1 : 0;
+        app.p_lower=$('#check_password_lower').is(':checked') ? 1 : 0;
+        app.p_number=$('#check_password_number').is(':checked') ? 1 : -1;
+        app.p_special=$('#check_password_special').is(':checked') ? 1: -1;
+        app.p_length=parseInt($('#inp_password_length').val());
+        app.p_pass=app.randomPassword(app.p_length,app.p_upper,app.p_lower,app.p_number,app.p_special);
         $('#txt_show_password').stop(true,true).fadeOut();
         $('#txt_show_password').stop(true,true).fadeIn();
         $('#txt_show_password').fadeOut().fadeOut(100).fadeIn(300).fadeIn();
         $('#txt_show_password').val(app.escapeHtml(app.p_pass));
 
+        app.save_setting();
+    }
+
+    save_setting(){
         var obj_save={};
-        obj_save["p_upper"]=check_password_upper;
-        obj_save["p_lower"]=check_password_lower;
-        obj_save["p_number"]=check_password_number;
-        obj_save["p_special"]=check_password_special;
-        obj_save["p_length"]=inp_password_length;
+        obj_save["p_upper"]=app.p_upper;
+        obj_save["p_lower"]=app.p_lower;
+        obj_save["p_number"]=app.p_number;
+        obj_save["p_special"]=app.p_special;
+        obj_save["p_length"]=app.p_length;
+        obj_save["type_encryption"]=app.type_encryption;
+        obj_save["sel_menu"]=app.sel_menu;
 
         chrome.storage.local.set({"save_setting": obj_save}, function () {
             console.log("save setting success");
+        });
+    }
+
+    save_list(s_data,s_tag="",s_username="",s_type='0',act_done=null){
+        chrome.storage.local.get({list_password: []}, function (result) {
+            var data_password = result.list_password;
+            data_password.push({'password': s_data,'tag':s_tag,'username':s_username,'type':s_type});
+            chrome.storage.local.set({list_password: data_password}, function () {
+                if(act_done) act_done();
+            });
         });
     }
 

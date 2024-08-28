@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Create Password",
-  "version": "1.6",
+  "version": "1.7",
   "description": "The application is used to create passwords and manage passwords with a variety of preset options",
   
   "icons": {
